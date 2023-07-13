@@ -19,7 +19,7 @@
  */
 
 #define MACADDRESS 0x00,0x01,0x02,0x03,0x04,0x05
-#define MYIPADDR 192,168,3,30
+#define MYIPADDR 192,168,3,20
 #define MYIPMASK 255,255,255,0
 #define MYDNS 192,168,3,1
 #define MYGW 192,168,3,1

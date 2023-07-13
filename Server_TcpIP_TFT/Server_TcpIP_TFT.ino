@@ -2,8 +2,43 @@
 // CONFIGURED FOR EITHER THE TFT SHIELD OR THE BREAKOUT BOARD.
 // SEE RELEVANT COMMENTS IN Adafruit_TFTLCD.h FOR SETUP.
 
+/*
+ Chat Server
+
+ A simple server that distributes any incoming messages to all
+ connected clients.  To use, telnet to your device's IP address and type.
+ You can see the client's input in the serial monitor as well.
+ Using an Arduino WIZnet Ethernet shield.
+
+ Circuit:
+ * Ethernet shield attached to pins 10, 11, 12, 13
+
+ created 18 Dec 2009
+ by David A. Mellis
+ modified 9 Apr 2012
+ by Tom Igoe
+
+ */
+
+#include <SPI.h>
+#include <Ethernet.h>
+
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_TFTLCD.h> // Hardware-specific library
+
+// Enter a MAC address and IP address for your controller below.
+// The IP address will be dependent on your local network.
+// gateway and subnet are optional:
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip(192, 168, 3, 20);
+IPAddress myDns(192, 168, 3, 1);
+IPAddress gateway(192, 168, 3, 1);
+IPAddress subnet(255, 255, 0, 0);
+
+// telnet defaults to port 12345
+EthernetServer server(12345);
+bool alreadyConnected = false; // whether or not the client was connected previously
+
 
 // The control pins for the LCD can be assigned to any digital or
 // analog pins...but we'll use the analog pins as this allows us to
@@ -38,14 +73,68 @@
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 
+/*
+ Chat Server
+
+ A simple server that distributes any incoming messages to all
+ connected clients.  To use, telnet to your device's IP address and type.
+ You can see the client's input in the serial monitor as well.
+ Using an Arduino WIZnet Ethernet shield.
+
+ Circuit:
+ * Ethernet shield attached to pins 10, 11, 12, 13
+
+ created 18 Dec 2009
+ by David A. Mellis
+ modified 9 Apr 2012
+ by Tom Igoe
+
+ */
+
+
+
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 // If using the shield, all control and data lines are fixed, and
 // a simpler declaration can optionally be used:
 // Adafruit_TFTLCD tft;
 
 void setup(void) {
+  // You can use Ethernet.init(pin) to configure the CS pin
+  //Ethernet.init(10);  // Most Arduino shields
+  //Ethernet.init(5);   // MKR ETH Shield
+  //Ethernet.init(0);   // Teensy 2.0
+  //Ethernet.init(20);  // Teensy++ 2.0
+  //Ethernet.init(15);  // ESP8266 with Adafruit FeatherWing Ethernet
+  //Ethernet.init(33);  // ESP32 with Adafruit FeatherWing Ethernet
+
+  // initialize the Ethernet device
+  Ethernet.begin(mac, ip, myDns, gateway, subnet);
+
+  // Open serial communications and wait for port to open:
   Serial.begin(9600);
+   while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+   }
   Serial.println(F("TFT LCD test"));
+
+  // Check for Ethernet hardware present
+  if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+    Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+    while (true) {
+      delay(1); // do nothing, no point running without Ethernet hardware
+    }
+  }
+  if (Ethernet.linkStatus() == LinkOFF) {
+    Serial.println("Ethernet cable is not connected.");
+  }
+
+  // start listening for clients
+  server.begin();
+
+  Serial.print("Chat server address:");
+  Serial.println(Ethernet.localIP());
+
+
 
 #ifdef USE_ADAFRUIT_SHIELD_PINOUT
   Serial.println(F("Using Adafruit 2.8\" TFT Arduino Shield Pinout"));
@@ -85,62 +174,106 @@ void setup(void) {
 
   Serial.println(F("Benchmark                Time (microseconds)"));
 
-  Serial.print(F("Screen fill              "));
-  Serial.println(testFillScreen());
-  delay(500);
+  // Serial.print(F("Screen fill              "));
+  // Serial.println(testFillScreen());
+  // delay(500);
 
-  Serial.print(F("Text                     "));
-  Serial.println(testText());
-  delay(3000);
+  // Serial.print(F("Text                     "));
+  // Serial.println(testText());
+  // delay(3000);
 
-  Serial.print(F("Lines                    "));
-  Serial.println(testLines(CYAN));
-  delay(500);
+  // Serial.print(F("Lines                    "));
+  // Serial.println(testLines(CYAN));
+  // delay(500);
 
-  Serial.print(F("Horiz/Vert Lines         "));
-  Serial.println(testFastLines(RED, BLUE));
-  delay(500);
+  // Serial.print(F("Horiz/Vert Lines         "));
+  // Serial.println(testFastLines(RED, BLUE));
+  // delay(500);
 
-  Serial.print(F("Rectangles (outline)     "));
-  Serial.println(testRects(GREEN));
-  delay(500);
+  // Serial.print(F("Rectangles (outline)     "));
+  // Serial.println(testRects(GREEN));
+  // delay(500);
 
-  Serial.print(F("Rectangles (filled)      "));
-  Serial.println(testFilledRects(YELLOW, MAGENTA));
-  delay(500);
+  // Serial.print(F("Rectangles (filled)      "));
+  // Serial.println(testFilledRects(YELLOW, MAGENTA));
+  // delay(500);
 
-  Serial.print(F("Circles (filled)         "));
-  Serial.println(testFilledCircles(10, MAGENTA));
+  // Serial.print(F("Circles (filled)         "));
+  // Serial.println(testFilledCircles(10, MAGENTA));
 
-  Serial.print(F("Circles (outline)        "));
-  Serial.println(testCircles(10, WHITE));
-  delay(500);
+  // Serial.print(F("Circles (outline)        "));
+  // Serial.println(testCircles(10, WHITE));
+  // delay(500);
 
-  Serial.print(F("Triangles (outline)      "));
-  Serial.println(testTriangles());
-  delay(500);
+  // Serial.print(F("Triangles (outline)      "));
+  // Serial.println(testTriangles());
+  // delay(500);
 
-  Serial.print(F("Triangles (filled)       "));
-  Serial.println(testFilledTriangles());
-  delay(500);
+  // Serial.print(F("Triangles (filled)       "));
+  // Serial.println(testFilledTriangles());
+  // delay(500);
 
-  Serial.print(F("Rounded rects (outline)  "));
-  Serial.println(testRoundRects());
-  delay(500);
+  // Serial.print(F("Rounded rects (outline)  "));
+  // Serial.println(testRoundRects());
+  // delay(500);
 
-  Serial.print(F("Rounded rects (filled)   "));
-  Serial.println(testFilledRoundRects());
-  delay(500);
-
+  // Serial.print(F("Rounded rects (filled)   "));
+  // Serial.println(testFilledRoundRects());
+  // delay(500);
+  tft.setRotation(1);
+  tft.fillScreen(BLACK);
   Serial.println(F("Done!"));
 }
 
 void loop(void) {
-  for(uint8_t rotation=0; rotation<4; rotation++) {
-    tft.setRotation(rotation);
-    testText();
-    delay(2000);
+  //
+  unsigned long start = micros();
+  tft.setCursor(10, 20);
+  tft.setTextColor(WHITE);  tft.setTextSize(3);
+  tft.println(ip);
+
+  tft.setTextColor(YELLOW); tft.setTextSize(2);
+  tft.println(" wait for a new client:");
+    // wait for a new client:
+  EthernetClient client = server.available();
+
+  // when the client sends the first byte, say hello:
+  if (client) {
+    if (!alreadyConnected) {
+      // clear out the input buffer:
+      client.flush();
+      Serial.println("We have a new client");
+      tft.setTextColor(WHITE);
+      tft.println("We have a new client");
+      //client.println("Hello, client!");
+      alreadyConnected = true;
+    }
+    char recived[64] = "";
+    int znak = 0;
+    if (client.available() > 0) {
+      
+      // read the bytes incoming from the client:
+      char thisChar = client.read();
+      while (thisChar > -1) {
+        recived[znak] = thisChar;
+        thisChar = client.read();
+        znak = znak + 1;
+      }
+      String s = String(recived);
+      client.print(s);
+      Serial.print(s);
+      tft.println(s);
+      tft.println("...");
+      delay(50);
+      
+    }
+    client.flush();
   }
+
+  //tft.setRotation(1);
+  //testText();
+  delay(500);
+  //}
 }
 
 unsigned long testFillScreen() {
@@ -156,9 +289,9 @@ unsigned long testFillScreen() {
 unsigned long testText() {
   tft.fillScreen(BLACK);
   unsigned long start = micros();
-  tft.setCursor(0, 0);
-  tft.setTextColor(WHITE);  tft.setTextSize(1);
-  tft.println("Hello World!");
+  tft.setCursor(10, 20);
+  tft.setTextColor(WHITE);  tft.setTextSize(3);
+  tft.println(ip);
   tft.setTextColor(YELLOW); tft.setTextSize(2);
   tft.println(1234.56);
   tft.setTextColor(RED);    tft.setTextSize(3);

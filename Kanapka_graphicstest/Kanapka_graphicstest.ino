@@ -38,6 +38,44 @@
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 
+/*
+ Chat Server
+
+ A simple server that distributes any incoming messages to all
+ connected clients.  To use, telnet to your device's IP address and type.
+ You can see the client's input in the serial monitor as well.
+ Using an Arduino WIZnet Ethernet shield.
+
+ Circuit:
+ * Ethernet shield attached to pins 10, 11, 12, 13
+
+ created 18 Dec 2009
+ by David A. Mellis
+ modified 9 Apr 2012
+ by Tom Igoe
+
+ */
+
+#include <SPI.h>
+#include <Ethernet.h>
+
+// Enter a MAC address and IP address for your controller below.
+// The IP address will be dependent on your local network.
+// gateway and subnet are optional:
+byte mac[] = {
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress ip(192, 168, 3, 20);
+IPAddress myDns(192, 168, 3, 1);
+IPAddress gateway(192, 168, 3, 1);
+IPAddress subnet(255, 255, 0, 0);
+
+
+// telnet defaults to port 12345
+EthernetServer server(12345);
+bool alreadyConnected = false; // whether or not the client was connected previously
+
+
+
 Adafruit_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 // If using the shield, all control and data lines are fixed, and
 // a simpler declaration can optionally be used:
@@ -85,62 +123,63 @@ void setup(void) {
 
   Serial.println(F("Benchmark                Time (microseconds)"));
 
-  Serial.print(F("Screen fill              "));
-  Serial.println(testFillScreen());
-  delay(500);
+  // Serial.print(F("Screen fill              "));
+  // Serial.println(testFillScreen());
+  // delay(500);
 
-  Serial.print(F("Text                     "));
-  Serial.println(testText());
-  delay(3000);
+  // Serial.print(F("Text                     "));
+  // Serial.println(testText());
+  // delay(3000);
 
-  Serial.print(F("Lines                    "));
-  Serial.println(testLines(CYAN));
-  delay(500);
+  // Serial.print(F("Lines                    "));
+  // Serial.println(testLines(CYAN));
+  // delay(500);
 
-  Serial.print(F("Horiz/Vert Lines         "));
-  Serial.println(testFastLines(RED, BLUE));
-  delay(500);
+  // Serial.print(F("Horiz/Vert Lines         "));
+  // Serial.println(testFastLines(RED, BLUE));
+  // delay(500);
 
-  Serial.print(F("Rectangles (outline)     "));
-  Serial.println(testRects(GREEN));
-  delay(500);
+  // Serial.print(F("Rectangles (outline)     "));
+  // Serial.println(testRects(GREEN));
+  // delay(500);
 
-  Serial.print(F("Rectangles (filled)      "));
-  Serial.println(testFilledRects(YELLOW, MAGENTA));
-  delay(500);
+  // Serial.print(F("Rectangles (filled)      "));
+  // Serial.println(testFilledRects(YELLOW, MAGENTA));
+  // delay(500);
 
-  Serial.print(F("Circles (filled)         "));
-  Serial.println(testFilledCircles(10, MAGENTA));
+  // Serial.print(F("Circles (filled)         "));
+  // Serial.println(testFilledCircles(10, MAGENTA));
 
-  Serial.print(F("Circles (outline)        "));
-  Serial.println(testCircles(10, WHITE));
-  delay(500);
+  // Serial.print(F("Circles (outline)        "));
+  // Serial.println(testCircles(10, WHITE));
+  // delay(500);
 
-  Serial.print(F("Triangles (outline)      "));
-  Serial.println(testTriangles());
-  delay(500);
+  // Serial.print(F("Triangles (outline)      "));
+  // Serial.println(testTriangles());
+  // delay(500);
 
-  Serial.print(F("Triangles (filled)       "));
-  Serial.println(testFilledTriangles());
-  delay(500);
+  // Serial.print(F("Triangles (filled)       "));
+  // Serial.println(testFilledTriangles());
+  // delay(500);
 
-  Serial.print(F("Rounded rects (outline)  "));
-  Serial.println(testRoundRects());
-  delay(500);
+  // Serial.print(F("Rounded rects (outline)  "));
+  // Serial.println(testRoundRects());
+  // delay(500);
 
-  Serial.print(F("Rounded rects (filled)   "));
-  Serial.println(testFilledRoundRects());
-  delay(500);
+  // Serial.print(F("Rounded rects (filled)   "));
+  // Serial.println(testFilledRoundRects());
+  // delay(500);
 
   Serial.println(F("Done!"));
 }
 
 void loop(void) {
-  for(uint8_t rotation=0; rotation<4; rotation++) {
-    tft.setRotation(rotation);
+  //for(uint8_t rotation=0; rotation<4; rotation++) {
+    //rotation = 1
+    tft.setRotation(1);
     testText();
     delay(2000);
-  }
+  //}
 }
 
 unsigned long testFillScreen() {
@@ -157,7 +196,7 @@ unsigned long testText() {
   tft.fillScreen(BLACK);
   unsigned long start = micros();
   tft.setCursor(0, 0);
-  tft.setTextColor(WHITE);  tft.setTextSize(1);
+  tft.setTextColor(WHITE);  tft.setTextSize(3);
   tft.println("Hello World!");
   tft.setTextColor(YELLOW); tft.setTextSize(2);
   tft.println(1234.56);
