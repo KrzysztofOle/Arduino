@@ -42,9 +42,9 @@ bool lastUp = true;
 #define pinDIR 18
 #define pinENA 17
 
-int moveStep = 6400;
-int moveMax = 2000;
-int moveSpeed = 100;
+int moveStep = 16000;
+int moveMax = 400;
+int moveSpeed = 50;
 int moveAcc = 50000;
 int menu = 0;
 
@@ -53,12 +53,22 @@ int menu = 0;
 #define menuMax 2
 #define menuAcc 3
 #define menuSave 4
-#define menuEnd 4
+#define menuJog 5
+#define menuEnd 5
 
 #define UP 1
 #define DOWN -1
 
 #define menuValueCol 11
+
+float skokSroby = 12;     //mm
+int stepOnRev = 200;      // ilośc koroków silnika na obrut
+int microStep = 8;        // podniał na mikrokoroki w sterowniku
+float stepDistance = 0;   //mm
+float moveStepReal = 0;   // ruch w mm
+int reaPosition = 0;
+float moveJogReal = 10;     //mm
+int moveJogSteps = 0;
 
 void writeSet() {
   int eeAddress = 0;
@@ -124,13 +134,29 @@ int read_LCD_buttons() {       // read the buttons
   return btnNONE;  // when all others fail, return this.
 }
 
+
+int realToStep(float real) {
+  int result = 0;
+  result = real/stepDistance;
+  return result;
+}
+
+
+int stepToReal(int step) {
+  int result = 0;
+  result = step*stepDistance;
+  return result;
+}
+
+
 void setup() {
   pinMode(pinENA, OUTPUT);
   pinMode(pinDIR, OUTPUT);
   pinMode(pinSTP, OUTPUT);
 
   Serial.begin(9600);  // set up Serial library at 9600 bps
-  Serial.println("Stepper controler");
+  Serial.println("");
+  Serial.println("Stepper controler: ...");
 
   lcd.begin(16, 2);     // start the library
   lcd.setCursor(0, 0);  // set the LCD cursor   position
@@ -143,6 +169,16 @@ void setup() {
   //stepper.moveTo(500);
   // odczytujemy zapisane w EEPROM parametry
   //readSet();
+
+  stepDistance = skokSroby / (stepOnRev * microStep);
+  Serial.print("stepDistance: ");
+  Serial.print(stepDistance*1000);
+  Serial.println(" um");
+
+  moveJogSteps = realToStep(moveJogReal);
+  Serial.print("moveJogSteps: ");
+  Serial.println(moveJogSteps);
+
 }
 
 void lcd_menu() {
@@ -181,6 +217,13 @@ void lcd_menu() {
     case menuSave:
       {
         lcd.print("save param: DOWN");
+      }
+    case menuJog:
+      {
+        lcd.print("      jog: ");
+        lcd.setCursor(menuValueCol, 0);
+        lcd.print(moveAcc);
+        lcd.print("   ");
       }
     default:
       {
@@ -237,6 +280,10 @@ void buttonUpDown(int wsp) {
         }
         break;
       }
+    case menuJog:
+    {
+
+    }
   }
 }
 
@@ -244,18 +291,24 @@ void buttonUpDown(int wsp) {
 void loop() {
   lcd_menu();
   lcd.setCursor(12, 1);                  // move cursor to second line "1" and 9 spaces over
-  lcd.print(stepper.currentPosition());  // display seconds elapsed since power-up
+  reaPosition = stepToReal(stepper.currentPosition());
+  lcd.print(reaPosition);  // display seconds elapsed since power-up
 
   lcd.setCursor(0, 1);           // move to the begining of the second line
   lcd_key = read_LCD_buttons();  // read the buttons
-
+  int move = 0;
   switch (lcd_key) {  // depending on which button was pushed, we perform an action
 
     case btnRIGHT:
       {  //  push button "RIGHT" and show the word on the screen
+        if(menu != menuJog) {
+          move = -moveStep;
+        } else {
+          move = -moveJogSteps;
+        }
         lcd.print("move: ");
-        lcd.print(moveStep);
-        stepper.move(moveStep);
+        lcd.print(move);
+        stepper.move(move);
         delay(5);
         while (stepper.distanceToGo() != 0) {
           stepper.run();
@@ -263,19 +316,30 @@ void loop() {
           //lcd.print(stepper.currentPosition());
           //  Serial.println(stepper.distanceToGo());
         }
+        reaPosition = stepToReal(stepper.currentPosition());
+        Serial.print("reaPosition: ");
+        Serial.println(reaPosition);
         break;
       }
     case btnLEFT:
       {
+        if(menu != menuJog) {
+          move = moveStep;
+        } else {
+          move = moveJogSteps;
+        }
         lcd.print("move: -");
-        lcd.print(moveStep);
-        stepper.move(-moveStep);
+        lcd.print(move);
+        stepper.move(move);
         delay(5);
         while (stepper.distanceToGo() != 0) {
           stepper.run();
           //lcd.setCursor(12, 1);
           //lcd.print(stepper.currentPosition());
         }
+        reaPosition = stepToReal(stepper.currentPosition());
+        Serial.print("reaPosition: ");
+        Serial.println(reaPosition);
         break;
       }
     case btnUP:
@@ -308,4 +372,5 @@ void loop() {
       }
   }
   stepper.run();
+  delay(100);
 }
