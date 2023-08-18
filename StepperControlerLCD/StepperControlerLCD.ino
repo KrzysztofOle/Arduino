@@ -47,7 +47,7 @@ bool lastUp = true;
 #define pinDIR 18
 #define pinSTP 19
 
-float moveStep_mm = 100; // mm
+float moveStep_mm = 110; // mm
 int moveStep = 8000; // steps
 int moveMax = 300;
 int moveSpeed = 50;
@@ -350,6 +350,21 @@ void buttonUpDown(int wsp) {
   switch (menu) {
     case menuRun:
       {
+        if (wsp == UP){
+          // sekwencja skanow
+          Serial.println("SEKWENCJA SKANOW . . .");
+          stepper.moveTo(0);
+          wait_end_move();
+          delay(3000);
+          for (int i = 0; i <= 3; i++) {
+            stepper.moveTo(moveStep);
+            wait_end_move();
+            delay(3000);
+            stepper.moveTo(0);
+            wait_end_move();
+            delay(3000);
+          }
+        }
         break;
       }
     case menuStep:
