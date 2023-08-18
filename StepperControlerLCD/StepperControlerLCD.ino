@@ -38,15 +38,22 @@ bool lastUp = true;
 // Light,      D10,
 //
 
-#define pinSTP 19
-#define pinDIR 18
-#define pinENA 17
 
-int moveStep = 16000;
-int moveMax = 400;
+// styki wg kolejnosci na plytce
+#define pin_key_ins A0 //14
+#define pinLIMT1 15
+#define pinLIMT2 16
+#define pinENA 17
+#define pinDIR 18
+#define pinSTP 19
+
+float moveStep_mm = 100; // mm
+int moveStep = 8000; // steps
+int moveMax = 300;
 int moveSpeed = 50;
-int moveAcc = 50000;
+int moveAcc = 10000;
 int menu = 0;
+bool bazowane_OK = false;
 
 #define menuRun 0
 #define menuStep 1
@@ -69,6 +76,8 @@ float moveStepReal = 0;   // ruch w mm
 int reaPosition = 0;
 float moveJogReal = 10;     //mm
 int moveJogSteps = 0;
+int limt1 = 0;
+int limt2 = 0;
 
 void writeSet() {
   int eeAddress = 0;
@@ -102,8 +111,87 @@ AccelStepper stepper(AccelStepper::DRIVER,
 
 AccelStepper setEnablePin(pinENA);
 
-int read_LCD_buttons() {       // read the buttons
+void diag_test() {
   adc_key_in = analogRead(0);  // read the value from the sensor
+  if (adc_key_in > 1000) return;
+  Serial.println("DIAG: press RESET to end");
+  while (true) {
+    // wyswietlamy w petli informacje diagnostyczne
+    lcd.clear();
+
+    lcd.setCursor(0, 0);  // set the LCD cursor   position
+    lcd.print("DIAG: RESET=end");  // print a simple message on the LCD
+    lcd.setCursor(0, 1);
+    limt1 = digitalRead(pinLIMT1);
+    limt2 = digitalRead(pinLIMT2);
+    lcd.print("LIM:");
+    lcd.print(limt1);
+    lcd.print(";");
+    lcd.print(limt2);
+    lcd.print(" B:");
+    adc_key_in = analogRead(0);
+    lcd.print(adc_key_in);
+
+    Serial.print("limt1: ");
+    Serial.print(limt1);
+    Serial.print("   limt2: ");
+    Serial.print(limt2);
+    Serial.print("   adc_key_in: ");
+    Serial.println(adc_key_in);
+
+    delay(200);
+  }
+
+}
+
+
+void bazowanie() {
+  if (bazowane_OK == false)
+    lcd.clear();
+    lcd.setCursor(0, 0);  // set the LCD cursor   position
+    lcd.print("  > BAZOWANIE <");  // print a simple message on the LCD
+    Serial.println("");
+    Serial.println("BAZOWANIE . . .");
+    limt1 = digitalRead(pinLIMT1);
+    limt2 = digitalRead(pinLIMT2);
+
+    Serial.print("limt1: ");
+    Serial.print(limt1);
+    Serial.print("   limt2: ");
+    Serial.println(limt2);
+    stepper.setMaxSpeed(3500);
+    if (limt2 == 1) {
+      // stoimy na poczatku, konieczny odjazd
+      Serial.println("   . odjazd");
+      stepper.move(1000);
+      wait_end_move_limit(pinLIMT1);
+    }
+    limt2 = digitalRead(pinLIMT2);
+    while (limt2 == 0) {
+      // krok po kroku
+      Serial.println("   . szybki najazd");
+      stepper.move(-100000);
+      wait_end_move();
+      limt2 = digitalRead(pinLIMT2);
+    }
+
+    while (limt2 == 1) {
+      // krok po kroku powolny zjazd z kransowki
+      stepper.move(1);
+      stepper.run();
+      limt2 = digitalRead(pinLIMT2);
+    }
+
+    stepper.setCurrentPosition(0);
+
+    stepper.setMaxSpeed(moveMax);
+    bazowane_OK = true;
+  }
+
+
+
+int read_LCD_buttons() {       // read the buttons
+  adc_key_in = analogRead(pin_key_ins);  // read the value from the sensor
   //Serial.println("adc_key_in: ");
   //Serial.println(adc_key_in);
   //delay(200);
@@ -150,15 +238,23 @@ int stepToReal(int step) {
 
 
 void setup() {
+  pinMode(A0, INPUT) ;
+  pinMode(pinLIMT1, INPUT_PULLUP);
+  pinMode(pinLIMT2, INPUT_PULLUP);
   pinMode(pinENA, OUTPUT);
   pinMode(pinDIR, OUTPUT);
   pinMode(pinSTP, OUTPUT);
 
   Serial.begin(9600);  // set up Serial library at 9600 bps
   Serial.println("");
-  Serial.println("Stepper controler: ...");
 
   lcd.begin(16, 2);     // start the library
+  diag_test(); // testy przyciskow i karncowek
+
+  Serial.println("Stepper controler: ...");
+
+  
+  lcd.clear();
   lcd.setCursor(0, 0);  // set the LCD cursor   position
   //lcd.print("................");  // print a simple message on the LCD
 
@@ -179,6 +275,21 @@ void setup() {
   Serial.print("moveJogSteps: ");
   Serial.println(moveJogSteps);
 
+
+  moveStepReal = moveStep * stepDistance;
+  Serial.print("moveStepReal: ");
+  Serial.print(moveStepReal);
+  Serial.println(" mm");
+
+  if (moveStep_mm != 0) {
+    Serial.println("Korekta dystansu:");
+    moveStep = moveStep_mm / stepDistance;
+    moveStepReal = moveStep * stepDistance;
+    Serial.print("moveStepReal: ");
+    Serial.print(moveStepReal);
+    Serial.println(" mm");
+  }
+  bazowanie();
 }
 
 void lcd_menu() {
@@ -287,6 +398,36 @@ void buttonUpDown(int wsp) {
   }
 }
 
+void wait_end_move(){
+  limt1 = digitalRead(pinLIMT1);
+  limt2 = digitalRead(pinLIMT2);
+    while (stepper.distanceToGo() != 0) {
+      limt1 = digitalRead(pinLIMT1);
+      limt2 = digitalRead(pinLIMT2);
+      if (limt1 || limt2) {
+        stepper.stop();
+        Serial.println("LIMIT STOP ! !");
+        return;
+      }
+      stepper.run();
+    } 
+}
+
+void wait_end_move_limit(int pinLIMT){
+  int limit = digitalRead(pinLIMT);
+    while (stepper.distanceToGo() != 0) {
+      limit = digitalRead(pinLIMT);
+      if (limit) {
+        stepper.stop();
+        Serial.print("LIMIT STOP ");
+        Serial.print(pinLIMT);
+        Serial.println("  ! ! !");
+        return;
+      }
+      stepper.run();
+    } 
+}
+
 
 void loop() {
   lcd_menu();
@@ -309,13 +450,7 @@ void loop() {
         lcd.print("move: ");
         lcd.print(move);
         stepper.move(move);
-        delay(5);
-        while (stepper.distanceToGo() != 0) {
-          stepper.run();
-          //lcd.setCursor(12, 1);
-          //lcd.print(stepper.currentPosition());
-          //  Serial.println(stepper.distanceToGo());
-        }
+        wait_end_move();
         reaPosition = stepToReal(stepper.currentPosition());
         Serial.print("reaPosition: ");
         Serial.println(reaPosition);
@@ -331,12 +466,7 @@ void loop() {
         lcd.print("move: -");
         lcd.print(move);
         stepper.move(move);
-        delay(5);
-        while (stepper.distanceToGo() != 0) {
-          stepper.run();
-          //lcd.setCursor(12, 1);
-          //lcd.print(stepper.currentPosition());
-        }
+        wait_end_move();
         reaPosition = stepToReal(stepper.currentPosition());
         Serial.print("reaPosition: ");
         Serial.println(reaPosition);
