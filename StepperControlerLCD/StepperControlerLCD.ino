@@ -290,6 +290,11 @@ void setup() {
     Serial.println(" mm");
   }
   bazowanie();
+
+    // auto start skanowania
+  //skan(1, 0, moveStep, 5000);
+
+  skan(1, realToStep(120), realToStep(250), 5000);
 }
 
 void lcd_menu() {
@@ -344,6 +349,33 @@ void lcd_menu() {
 }
 
 
+void skan(int ile_pwt, int start, int end, int pauza) {
+  // sekwencja skanow
+  Serial.print("SEKWENCJA SKANOW . . .");
+  Serial.println(" ile_pwt");
+  stepper.setMaxSpeed(3500);
+  Serial.print("      moveTo start: ");
+  Serial.println(start);
+  stepper.moveTo(start);
+  wait_end_move();
+  delay(500);
+  stepper.setMaxSpeed(moveMax);
+  for (int i = 0; i <= ile_pwt; i++) {
+    Serial.print("  przejzad nr ");
+    Serial.println(i);
+    Serial.print("      moveTo end: ");
+    Serial.println(-end);
+    stepper.moveTo(-end);
+    wait_end_move();
+    delay(pauza);
+    Serial.print("      moveTo start: ");
+    Serial.println(start);
+    stepper.moveTo(start);
+    wait_end_move();
+    delay(pauza);
+  }
+}
+
 
 void buttonUpDown(int wsp) {
 
@@ -351,19 +383,7 @@ void buttonUpDown(int wsp) {
     case menuRun:
       {
         if (wsp == UP){
-          // sekwencja skanow
-          Serial.println("SEKWENCJA SKANOW . . .");
-          stepper.moveTo(0);
-          wait_end_move();
-          delay(3000);
-          for (int i = 0; i <= 3; i++) {
-            stepper.moveTo(moveStep);
-            wait_end_move();
-            delay(3000);
-            stepper.moveTo(0);
-            wait_end_move();
-            delay(3000);
-          }
+          skan(2, 0, moveStep, 5000);
         }
         break;
       }
@@ -453,6 +473,8 @@ void loop() {
   lcd.setCursor(0, 1);           // move to the begining of the second line
   lcd_key = read_LCD_buttons();  // read the buttons
   int move = 0;
+
+
   switch (lcd_key) {  // depending on which button was pushed, we perform an action
 
     case btnRIGHT:
